@@ -1,0 +1,22 @@
+# 对标 pom.xml：项目元数据和依赖声明。
+# 安装（先激活 .venv）：
+#   python -m pip install -e ".[web,test]"
+# -e 表示 editable，改代码不用重装。
+
+[project]
+name = "pystu"
+version = "0.1.0"
+description = "Java 开发者学 Python"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+    "pydantic>=2.0",
+]
+test = [
+    "pytest>=8.0",
+]

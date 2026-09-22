@@ -1,0 +1,20 @@
+# 虚拟环境：相当于每个项目一份独立 JDK + 本地仓库，不要提交
+.venv/
+
+# 解释器缓存，运行 .py 时自动生成
+__pycache__/
+*.py[cod]
+
+# IDE
+.idea/
+.vscode/
+
+# 各课运行/练习生成的数据
+**/demo_data/
+**/零件演示.json
+**/todos.json
+**/note.txt
+**/langs.json
+**/notes.json
+**/app.log
+*.egg-info/
