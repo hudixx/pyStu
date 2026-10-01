@@ -54,10 +54,10 @@ def parse_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='演示')
     sub = parser.add_subparsers(dest='command', required=True)
     s_add = sub.add_parser("add", help="添加的文字")
-    s_add.add_argument("title", type=str, required=True)
+    s_add.add_argument("title", type=str)
     sub.add_parser("list")
     s_done = sub.add_parser("done")
-    s_done.add_argument("todo_id", type=int, required=True)
+    s_done.add_argument("todo_id", type=int)
     return parser
 
 def main() -> None:
