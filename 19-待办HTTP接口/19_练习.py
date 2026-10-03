@@ -36,7 +36,7 @@ def in_todos(todo: Todo) -> Todo:
     writes(todos_dict)
     return todo
 
-@app.get("/todos/{todo_id}/done")
+@app.post("/todos/{todo_id}/done")
 def done(todo_id: int) -> dict:
     todos_dict = reads()
     for x in todos_dict:
