@@ -1,6 +1,6 @@
 # 对标 pom.xml：项目元数据和依赖声明。
 # 安装（先激活 .venv）：
-#   python -m pip install -e ".[web,test]"
+#   python -m pip install -e ".[web,test,lint]"
 # -e 表示 editable，改代码不用重装。
 
 [project]
@@ -20,3 +20,20 @@ web = [
 test = [
     "pytest>=8.0",
 ]
+lint = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+# ruff ≈ Checkstyle。本课只开 E/F，不对整个练习仓库开严规则。
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F"]
+
+# mypy ≈ 可选的 javac。ignore_missing_imports：第三方包没 stub 时不要刷屏。
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
