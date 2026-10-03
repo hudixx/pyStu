@@ -88,7 +88,9 @@ def timed(label: str, seconds: float) -> None:
 def main() -> None:
     """入口是普通 def。真正跑协程靠 asyncio.run，不要在已经在跑的循环里再 run。"""
     # 只调用、不 await：得到 coroutine 对象。对照 new 了一个没订阅的 Mono。
+    t0 = time.perf_counter()
     leftover = wait_one("漏掉 await", 0.1)
+    timed("没 wait", time.perf_counter() - t0)
     print("没 await 时拿到的是", type(leftover).__name__)  # 一般是 coroutine
     # 不 close 的话，解释器退出时会 RuntimeWarning: coroutine was never awaited。
     leftover.close()
