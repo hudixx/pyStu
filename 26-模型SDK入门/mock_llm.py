@@ -3,6 +3,12 @@
 阶段六示例和练习都打这里，不访问公网、不花 token。
 换真模型时：同一套 AsyncOpenAI，只改环境变量 OPENAI_BASE_URL / OPENAI_API_KEY。
 
+两种启动方式，不要混用：
+- 第 26–30 课、31_app.py：调用 start_mock()。端口 0（操作系统分配空闲端口），
+  丢进 daemon 后台线程，调用方拿到 server 后自己 shutdown()。
+- 第 31 课常驻：在本目录执行 python mock_llm.py。主线程绑死 127.0.0.1:8001，一直不退出。
+  31_client.py 的默认地址就是这个。31_test.py 只发请求，不启动、也不关闭它。
+
 对照 Java：这就是一个写死业务规则的假支付网关，专门给你联调用。
 底层用的是标准库 http.server，不是 FastAPI。一个请求一个线程（ThreadingHTTPServer）。
 
@@ -15,7 +21,9 @@
 
 from __future__ import annotations
 
+import errno  # 判断「端口已被占用」。不要手写 98 或 10048，用 EADDRINUSE 这个常量。
 import json  # 解析请求体、拼响应。对照 Jackson 的 readTree / writeValueAsString，这里是标准库。
+import sys  # 常驻入口端口被占用时 sys.exit(1)，不把 traceback 甩给运行的人。
 import threading  # 把 serve_forever 丢到后台线程，调用方才能继续跑客户端。
 import time  # sleep：故意拖慢，或流式时每吐一个字停一下。
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # 标准库的迷你 HTTP 服务器。
@@ -146,7 +154,7 @@ class MockLLMHandler(BaseHTTPRequestHandler):
             # f"..." 是格式化字符串。对照 Java 的 "data: " + json。末尾两个换行才是一条 SSE 的结束。
             self.wfile.write(f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8"))
             self.wfile.flush()  # 立刻从缓冲区推给客户端。不 flush，客户端要等缓冲区满或连接结束才看得到。
-            time.sleep(0.02)  # 每字停 20 毫秒，演示时才能看出「边收边打」，而不是一瞬间全出来。
+            time.sleep(0.5)  # 每字停 20 毫秒，演示时才能看出「边收边打」，而不是一瞬间全出来。
         # 结束块：delta 为空，finish_reason=stop，并带上 usage。官方协议里 usage 常在最后一块。
         done = {
             "id": "chatcmpl-mock",
@@ -237,6 +245,8 @@ def start_mock() -> tuple[ThreadingHTTPServer, str]:
     -> tuple[...] 只是标注返回类型，运行时返回的就是一个普通元组。
     """
     # 绑定 127.0.0.1（只有本机能连）和端口 0。第二个参数是「用哪个 Handler 类处理请求」。
+    # 这里必须是 0，不能写死 8001。8001 留给文件最下面的常驻入口。
+    # 写死的话，常驻假模型开着时，第 26–30 课再调用本函数会因为端口占用直接失败。
     server = ThreadingHTTPServer(("127.0.0.1", 0), MockLLMHandler)
     # serve_forever 会一直阻塞，所以丢到新线程。daemon=True：主线程退出时这个线程不必单独 join。
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -244,3 +254,62 @@ def start_mock() -> tuple[ThreadingHTTPServer, str]:
     # 端口传了 0，真正的端口要等 bind 之后从 server_address 读出来。(host, port) 再拆成两个变量。
     host, port = server.server_address
     return server, f"http://{host}:{port}/v1"
+
+
+class _ResidentServer(ThreadingHTTPServer):
+    """只给 python mock_llm.py 用。禁止两个进程同时听 8001。
+
+    父类 HTTPServer 写了 allow_reuse_address = 1。对照 Java 的 ServerSocket.setReuseAddress(true)。
+    在 Windows 上这个开关为真时，第二个进程还能再 bind 同一个端口，于是「端口已被占用」不会发生。
+    改回 False 之后，第二个 bind 会得到 EADDRINUSE（Windows 上错误码 10048）。
+    start_mock() 不走这个子类，第 26–30 课的行为不变。
+    """
+
+    # 类变量覆盖父类的 1。必须是类属性，父类在 server_bind 里读的是这个字段。
+    allow_reuse_address = False
+
+
+def _serve_resident() -> None:
+    """python mock_llm.py 的入口：主线程绑死 8001，一直阻塞到 Ctrl+C。
+
+    不要改成调用 start_mock()。那个函数把 serve_forever 丢进 daemon 线程后就返回；
+    主线程若跟着结束，daemon 线程会被一起杀掉，监听马上没了。
+    对照 Java：这是 main 里 ServerSocket 一直 accept、不返回；
+    start_mock 是给第 26–30 课用的嵌入式启动，谁启动谁 shutdown。
+    """
+    try:
+        # 端口写死 8001，和 31_client._client() 的默认 base_url 对齐。
+        # 第二个参数是类，不是实例。每来一个请求，父类会 new 一个 MockLLMHandler。
+        # 用 _ResidentServer，不要用 ThreadingHTTPServer：否则 Windows 上可以重复占用 8001。
+        server = _ResidentServer(("127.0.0.1", 8001), MockLLMHandler)
+    except OSError as exc:
+        # 只有「地址已在使用」才收成一行中文。权限之类的真错误继续抛，保留 traceback。
+        # Windows 上 errno.EADDRINUSE 的值是 10048，Linux 上通常是 98。用常量，不要写死数字。
+        if exc.errno != errno.EADDRINUSE:
+            raise
+        print("8001 端口已被占用。若假模型已在运行就不用再开；否则先关掉占用该端口的进程。")
+        sys.exit(1)  # 非 0 退出码。对照 System.exit(1)。
+
+    # bind 成功后从 server_address 读实际地址。(host, port)，port 是 int。
+    host, port = server.server_address
+    # flush=True：马上显示。否则标准输出被重定向时，这行会憋在缓冲区里，看起来像没启动。
+    print(f"假模型已启动: http://{host}:{port}/v1", flush=True)
+    print("本进程会一直挂着。结束请按 Ctrl+C。测试脚本不会关闭它。", flush=True)
+    try:
+        # 主线程自己阻塞在这里，所以进程不会退出。poll 间隔用库的默认值。
+        server.serve_forever()
+    except KeyboardInterrupt:
+        # Ctrl+C 打断 serve_forever 后，循环其实已经离开了。
+        # shutdown() 再补一次关闭请求：事件已经置位，不会在本线程里死等。
+        # 对照主动关闭 ServerSocket，而不是等进程被杀掉。
+        print("正在关闭假模型...")
+        server.shutdown()
+    finally:
+        # 关掉监听套接字，把 8001 还给系统。无论是 Ctrl+C 还是别的退出都走这里。
+        server.server_close()
+
+
+if __name__ == "__main__":
+    # 只有「python mock_llm.py」会进这里。其它文件 import start_mock 时不会执行。
+    # 对照 Java 的 public static void main：被当作程序启动才跑，被当作库引用不跑。
+    _serve_resident()
