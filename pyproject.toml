@@ -27,6 +27,10 @@ lint = [
 llm = [
     "openai>=1.50",
 ]
+# 只给第 49 课读评测表。不是数据分析依赖。
+table = [
+    "pandas>=2.2",
+]
 
 # ruff ≈ Checkstyle。本课只开 E/F，不对整个练习仓库开严规则。
 [tool.ruff]
