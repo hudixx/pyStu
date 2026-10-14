@@ -70,7 +70,7 @@ async def trace_chat(base_url: str) -> dict:
     client = AsyncOpenAI(
         api_key=os.environ.get("OPENAI_API_KEY", "mock-key"),  # 没有环境变量就用占位。真密钥不要写进源码。
         base_url=base_url,  # 本次 start_mock 分配的 http://127.0.0.1:端口/v1。
-        timeout=10.0,  # 单次 HTTP 的掐断，单位秒。和下面自己量的 latency_ms 不是同一个数。
+        timeout=1000.0,  # 单次 HTTP 的掐断，单位秒。和下面自己量的 latency_ms 不是同一个数。
         max_retries=0,
     )
     started = time.perf_counter()
