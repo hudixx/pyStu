@@ -49,7 +49,7 @@ def passes(text: str, must: str | None, abstain: bool) -> bool:
     if abstain:
         # in 对字符串是「是否包含子串」，不是等于。对照 text.contains("不知道")。
         # 编了北京仍含「不知道」也不算过。两个条件都要。and 会短路，对照 &&。
-        return "不知道" in text and "北京" not in text
+        return "不知道" in text and "北京" not in text # 针对黄金集第3条的编造。正确的说了不知道，但是又随便猜了个地址的，也判定答错
     # must 在非拒答的题里不会是 None。这里收窄，是给类型检查看的。
     # assert 失败抛 AssertionError。对照 Objects.requireNonNull，但 -O 运行时这行会被丢掉。
     assert must is not None
@@ -85,7 +85,7 @@ def brief(question: str, index: list) -> tuple[str, list[str]]:
     # del 删的是这个局部名字，不是调用方手里的索引。对照「这个参数未使用」，这里用删名字来标明。
     if "地址" in question:
         # 编了一个城市，还带了假出处「编造」。拒答题会因为含「北京」、不含「不知道」而失败。
-        return "我们在北京市海淀区，欢迎来访。", ["编造"]
+        return "不知道，也许我们在北京市，欢迎来访。", ["编造"]
     if "电话" in question:
         # 没有 400-100-1000。礼貌，但要点不在。
         return "请拨打客服电话，我们会尽快回复。", ["客服"]
