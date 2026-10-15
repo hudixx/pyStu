@@ -31,6 +31,10 @@ llm = [
 table = [
     "pandas>=2.2",
 ]
+# 第 50 课起用 SQLite，不要求单独装数据库。
+db = [
+    "sqlalchemy>=2.0",
+]
 
 # ruff ≈ Checkstyle。本课只开 E/F，不对整个练习仓库开严规则。
 [tool.ruff]

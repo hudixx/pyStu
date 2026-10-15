@@ -19,6 +19,10 @@ __pycache__/
 **/app.log
 *.egg-info/
 
+# SQLite 文件。表结构在迁移脚本里，库文件本身不提交。
+*.db
+*.sqlite3
+
 # 密钥：对照不提交 application.yml 里的密码
 .env
 .env.local
