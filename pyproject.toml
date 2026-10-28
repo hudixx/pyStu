@@ -19,6 +19,8 @@ web = [
 ]
 test = [
     "pytest>=8.0",
+    # 选修 B3 的异步测试。第 20 课的同步测试不用它。
+    "pytest-asyncio>=0.24",
 ]
 lint = [
     "ruff>=0.8",
