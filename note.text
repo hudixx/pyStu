@@ -1,0 +1,39 @@
+SELECT
+      u.id,
+      u.name,
+      t.id    AS todo_id,
+      t.title
+  FROM users AS u
+  LEFT JOIN todos AS t                          -- 左连接：没有待办的用户也留着
+      ON t.user_id = u.id
+  WHERE u.created_at BETWEEN '2026-01-01' AND '2026-12-31'   -- 注册日落在这一年
+      AND (                                         -- 下面整段是一个 AND 条件
+            t.id IS NULL                            -- 左连接上没配到待办
+            OR (                                    -- 或者配到了，并且同时满足两件
+                t.priority > 1
+                AND t.id IN (                       -- 子查询：紧急标签指向的那些待办
+                    SELECT todo_id
+                    FROM todo_tags
+                    WHERE tag = 'urgent'
+                )
+            )
+          );
+
+sql语句对应的jpa语法
+urgent_ids = select(TodoTag.todo_id).where(TodoTag.tag == "urgent")
+
+  stmt = (
+      select(User.id, User.name, Todo.id, Todo.title)
+      .outerjoin(Todo, Todo.user_id == User.id)  # outerjoin 就是 LEFT JOIN
+      .where(
+          User.created_at.between("2026-01-01", "2026-12-31"),  # BETWEEN
+          or_(                                                  # OR
+              Todo.id.is_(None),                                # 左连接没配上
+              and_(                                             # AND，不能写 Python 的 and
+                  Todo.priority > 1,                            # >
+                  Todo.id.in_(urgent_ids),                      # IN (子查询)
+              ),
+          ),
+      )
+  )
+  rows = session.execute(stmt).all()  # 选了多列，得到的是行，不是单个 Todo
