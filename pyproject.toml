@@ -37,6 +37,11 @@ table = [
 db = [
     "sqlalchemy>=2.0",
 ]
+# 选修 B4。fakeredis 在进程里实现 Redis 命令，不启动服务器，也不写密码。
+cache = [
+    "redis>=5",
+    "fakeredis>=2",
+]
 
 # ruff ≈ Checkstyle。本课只开 E/F，不对整个练习仓库开严规则。
 [tool.ruff]
