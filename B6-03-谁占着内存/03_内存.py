@@ -7,28 +7,50 @@
 
 from __future__ import annotations
 
-import gc
-import tracemalloc
+import gc  # 垃圾回收里专门扫「循环引用」的那一趟。对照 System.gc()，平时不必手点，这里是为了把释放做干净。
+import tracemalloc  # 从 start 起跟踪内存分配。对照只看这一段新分配了多少，不是整个进程的堆。
 
+# 全大写是约定，不是真的常量。100_000 的下划线只方便读，值是十万。
 COUNT = 100_000
 
 
 def main() -> None:
+    """造一个十万槽的列表，量它多占了多少，再删掉，看这段有没有还回去。
+
+    逻辑：
+    1. start 之后先记一个基数。
+    2. 造列表，再记一次。两者相减就是这段多出来的字节。
+    3. del 掉名字并 gc.collect()。若当前占用小于刚才，打印「已释放」。
+    4. stop，结束跟踪。
+    """
+
     tracemalloc.start()  # 从这里开始记分配。之前的对象不在这组数里。
     # 当前占着多少，以及到现在的峰值。峰值这课不用。
+    # get_traced_memory() 返回两个整数，一次接住。对照一个 Pair。
+    # _peak 的下划线表示这个峰值我故意不用。
     before, _peak = tracemalloc.get_traced_memory()
     data = ["买牛奶"] * COUNT  # 列表有十万个槽。字符串只有一份。
+    # 列表乘整数：把这一份元素重复 COUNT 次，拼成一个新列表。对照 Collections.nCopies，槽有十万个。
+    # 每个槽放的是指向同一个字符串的引用，不是把「买牛奶」复制十万份。64 位上一个引用 8 字节。
     held, _peak = tracemalloc.get_traced_memory()
-    print("占着", held - before)
+    print("占着", held - before)  # 相减得到这一段多出来的字节。预期大约 800000，再加列表自己的一点开销。
     del data  # 名字没了。没有循环引用时，引用计数会马上把列表收回。
+    # del 删的是这个局部名字，不是一个方法调用。对照这个变量离开作用域。没有别的名字指着列表时，引用计数归零。
     gc.collect()  # 有循环引用时才靠它。这里调用一次，避免漏掉那种情况。
+    # 循环引用是 A 指着 B、B 又指着 A。引用计数降不到 0，要靠这一趟去找。本课的列表没有这种环。
     freed, _peak = tracemalloc.get_traced_memory()
     if freed < held:
+        # 删掉之后当前占用变小，说明那段列表不再算在「还占着」里。
         print("已释放")
     else:
         print("还在")
-    tracemalloc.stop()
+    tracemalloc.stop()  # 停止跟踪。不 stop，后面无关的分配也会被记进去。
 
 
 if __name__ == "__main__":
     main()
+
+# 这个脚本想说明的事：
+# 慢和占内存不是同一件事。tracemalloc 看的是从 start 之后多分配了多少字节。
+# ["买牛奶"] * 100000 是十万个指针指着同一个字符串，不是十万份文字。64 位上大约 80 万字节。
+# del 去掉名字。没有别的引用时列表会马上收回。gc.collect() 是为了循环引用那种情况，不是每次删对象都要调用。
